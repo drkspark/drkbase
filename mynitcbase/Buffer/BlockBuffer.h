@@ -19,8 +19,8 @@ struct HeadInfo {
 };
 
 typedef union Attribute {
-  double nVal;
-  char sVal[ATTR_SIZE];
+  double nVal; // This is the numerical value
+  char sVal[ATTR_SIZE]; // This is the string value
 } Attribute;
 
 int compareAttrs(Attribute attr1, Attribute attr2, int attrType);

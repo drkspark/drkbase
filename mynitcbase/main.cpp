@@ -1,3 +1,4 @@
+#include "Buffer/BlockBuffer.h"
 #include "Buffer/StaticBuffer.h"
 #include "Cache/OpenRelTable.h"
 #include "Disk_Class/Disk.h"
@@ -6,45 +7,66 @@
 #include <cstring>
 #include <iostream>
 
+
+void printHeaderInfo(const HeadInfo& header) {
+  std::cout << "Block Type: " << header.blockType << "\n"
+            << "#Attributes : " << header.numAttrs << "\n"
+            << "#Entries: " << header.numEntries << "\n"
+            << "#Slots : " << header.numSlots << "\n"
+            << "Right Block: " << header.rblock << '\n'
+            << "Left Block: " << header.lblock << '\n';
+}
+
+
+
 int main(int argc, char *argv[]) {
   /* Initialize the Run Copy of Disk */
   Disk disk_run;
-  // StaticBuffer buffer;
-  // OpenRelTable cache;
-
-  // return FrontendInterface::handleFrontend(argc, argv);
-  unsigned char buffer[BLOCK_SIZE];
-  Disk::readBlock(buffer, 7000);
-  char message[] = "hello";
-  memcpy(buffer + 20, message, 6);
-  Disk::writeBlock(buffer, 7000);
-
-  unsigned char buffer2[BLOCK_SIZE];
-  char message2[6];
-  Disk::readBlock(buffer2, 7000);
-  memcpy(message2, buffer2 + 20, 6);
-  std::cout << message2 << '\n';
-
-  // std::cout << sizeof(BlockType::BMAP) << " " << sizeof(BlockType::REC) << " " << sizeof(BlockType::UNUSED_BLK) << " "<< sizeof(BlockType::IND_INTERNAL) << " "<< sizeof(BlockType::IND_LEAF) << '\n';
-  // Since Block Allocation Map is made up of first 4 
   
-  unsigned char block_allocation_mp[BLOCK_SIZE]; // We are reading the 1st block of the Block Allocation Map
-  Disk::readBlock(block_allocation_mp, 0);
-  unsigned char first_byte[6];
-  memcpy(first_byte, block_allocation_mp, 6);
-  /**
-    Since the Block Allocation Map stores the BlockType we should cast each byte to BlockType to see which type of block is being stored
-    It also works when you convert it to int since the BlockType and int are of same size
-   */
-  std::cout << "1st byte contains: " << static_cast<int>(first_byte[0])<<'\n';
-  std::cout << "1st byte contains: " << static_cast<BlockType>(first_byte[0])<<'\n';
- 
+  // creating objects for relation and attribute catalog
+  RecBuffer relCatBuffer(RELCAT_BLOCK);
+  RecBuffer attrCatBuffer(ATTRCAT_BLOCK);
 
-  std::cout << "2nd byte contains: " << static_cast<BlockType>(first_byte[1])<<'\n';
-  std::cout << "3rd byte contains: " << static_cast<BlockType>(first_byte[2])<<'\n';
-  std::cout << "4th byte contains: " << static_cast<BlockType>(first_byte[3])<<'\n';
-  std::cout << "5th byte contains: " << static_cast<BlockType>(first_byte[4])<<'\n';
-  std::cout << "6th byte contains: " << static_cast<BlockType>(first_byte[5])<<'\n';
+  HeadInfo relCatHeader;
+  HeadInfo attrCatHeader;
+
+  // Loading the headers of both the blocks into relCatHeader and attrCatHeader
+  relCatBuffer.getHeader(&relCatHeader);
+  attrCatBuffer.getHeader(&attrCatHeader);
+  
+  // std::cout << "Printing Relation Catalog Header:: \n";
+  // printHeaderInfo(relCatHeader);
+  
+  // std::cout << "Printing Attribute Catalog Header:: \n";
+  // printHeaderInfo(attrCatHeader);
+
+  /* i = 0 to total relation count */
+  for (int i = 0; i < relCatHeader.numEntries; ++i) {
+
+    Attribute relCatRecord[RELCAT_NO_ATTRS]; // will store the record from the relation catalog
+
+    relCatBuffer.getRecord(relCatRecord, i);
+
+    printf("Relation: %s\n", relCatRecord[RELCAT_REL_NAME_INDEX].sVal);
+
+    /* j = 0 to number of entries in the attribute catalog */
+    for (int j = 0; j < attrCatHeader.numEntries; ++j) {
+
+      // declare attrCatRecord and load the attribute catalog entry into it
+      Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
+      attrCatBuffer.getRecord(attrCatRecord, j);
+      
+      // std::cout << "Relation name from Attribute CAT:: " << attrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal << '\n';
+      // std::cout << "Relation name form Rel CAT:: " << relCatRecord[RELCAT_REL_NAME_INDEX].sVal << '\n';
+
+      /* attribute catalog entry corresponds to the current relation */
+      if (strcmp(attrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal, relCatRecord[RELCAT_REL_NAME_INDEX].sVal) == 0) {
+        const char *attrType = attrCatRecord[ATTRCAT_ATTR_TYPE_INDEX].nVal == NUMBER ? "NUM" : "STR";
+        printf("  %s: %s\n", /* get the attribute name */ attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, attrType);
+      }
+    }
+    printf("\n");
+  }
 
   return 0; 
 }
