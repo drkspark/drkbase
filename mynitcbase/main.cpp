@@ -17,23 +17,9 @@ void printHeaderInfo(const HeadInfo& header) {
             << "Left Block: " << header.lblock << '\n';
 }
 
-
-
-int main(int argc, char *argv[]) {
-  /* Initialize the Run Copy of Disk */
-  Disk disk_run;
-  
-  // creating objects for relation and attribute catalog
-  RecBuffer relCatBuffer(RELCAT_BLOCK);
-  RecBuffer attrCatBuffer(ATTRCAT_BLOCK);
-
-  HeadInfo relCatHeader;
-  HeadInfo attrCatHeader;
-
-  // Loading the headers of both the blocks into relCatHeader and attrCatHeader
-  relCatBuffer.getHeader(&relCatHeader);
-  attrCatBuffer.getHeader(&attrCatHeader);
-  
+void readRelations(RecBuffer& relCatBuffer, RecBuffer& attrCatBuffer
+                  , const HeadInfo& relCatHeader, const HeadInfo& attrCatHeader
+  ) {
   // std::cout << "Printing Relation Catalog Header:: \n";
   // printHeaderInfo(relCatHeader);
   
@@ -67,6 +53,55 @@ int main(int argc, char *argv[]) {
     }
     printf("\n");
   }
+}
 
+int main(int argc, char *argv[]) {
+  /* Initialize the Run Copy of Disk */
+  Disk disk_run;
+  
+  // creating objects for relation and attribute catalog
+  RecBuffer relCatBuffer(RELCAT_BLOCK);
+  RecBuffer attrCatBuffer(ATTRCAT_BLOCK);
+
+  HeadInfo relCatHeader;
+  HeadInfo attrCatHeader;
+
+  // Loading the headers of both the blocks into relCatHeader and attrCatHeader
+  relCatBuffer.getHeader(&relCatHeader);
+  attrCatBuffer.getHeader(&attrCatHeader);
+
+  std::cout << "Before Modification of students relation:: \n";
+  readRelations(relCatBuffer, attrCatBuffer, relCatHeader, attrCatHeader);
+  
+  // Iterate through the attributes of the students and change the type whereever wanted
+  for (int i = 0; i < attrCatHeader.numEntries; ++i) {
+    Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
+    attrCatBuffer.getRecord(attrCatRecord, i);
+    char rel[] = "students";
+    if (strcmp(attrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal, rel) == 0) {
+      // Changing class attribute to batch
+      char old_attr_name[15] = "class";
+      if (strcmp(attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, old_attr_name) == 0) {
+        memcpy(attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, "batch", 5);
+        
+        // Will it always be able to write?? Wt abt exception handling
+        attrCatBuffer.setRecord(attrCatRecord, i);
+      }
+
+      memcpy(old_attr_name, "rollnumber", 10);
+      if (strcmp(attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, old_attr_name) == 0) {
+        // memcpy(attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, "batch", 5);
+        attrCatRecord[ATTRCAT_ATTR_TYPE_INDEX].nVal = STRING;
+        
+        // Will it always be able to write?? Wt abt exception handling
+        attrCatBuffer.setRecord(attrCatRecord, i);
+      }
+      
+    }
+  }
+
+  std::cout << "After Modification of students relation:: \n";
+  readRelations(relCatBuffer, attrCatBuffer, relCatHeader, attrCatHeader);
+  
   return 0; 
 }
