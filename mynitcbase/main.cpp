@@ -6,7 +6,14 @@
 #include "define/constants.h"
 #include <cstring>
 #include <iostream>
+#include <string>
+#include <vector>
 
+
+struct column_metadata {
+  std::string col_name;
+  std::string col_type;
+};
 
 void printHeaderInfo(const HeadInfo& header) {
   std::cout << "Block Type: " << header.blockType << "\n"
@@ -26,6 +33,16 @@ void readRelations(RecBuffer& relCatBuffer, RecBuffer& attrCatBuffer
   // std::cout << "Printing Attribute Catalog Header:: \n";
   // printHeaderInfo(attrCatHeader);
 
+  // First Collecting all the Block of Attribute Catalog
+  std::vector<int32_t> attrBlockNums;
+  HeadInfo tempHeader = attrCatHeader;
+  attrBlockNums.push_back(ATTRCAT_BLOCK);
+  while (tempHeader.rblock != -1) {
+    attrBlockNums.push_back(tempHeader.rblock);
+    RecBuffer tempBuffer(tempHeader.rblock);
+    tempBuffer.getHeader(&tempHeader);
+  }
+
   /* i = 0 to total relation count */
   for (int i = 0; i < relCatHeader.numEntries; ++i) {
 
@@ -35,20 +52,27 @@ void readRelations(RecBuffer& relCatBuffer, RecBuffer& attrCatBuffer
 
     printf("Relation: %s\n", relCatRecord[RELCAT_REL_NAME_INDEX].sVal);
 
-    /* j = 0 to number of entries in the attribute catalog */
-    for (int j = 0; j < attrCatHeader.numEntries; ++j) {
+    // For each realtion iterating over each block of Attribute Catalog and printing the attributes
+    for(auto& attrBlockNum : attrBlockNums) {
 
-      // declare attrCatRecord and load the attribute catalog entry into it
-      Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
-      attrCatBuffer.getRecord(attrCatRecord, j);
-      
-      // std::cout << "Relation name from Attribute CAT:: " << attrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal << '\n';
-      // std::cout << "Relation name form Rel CAT:: " << relCatRecord[RELCAT_REL_NAME_INDEX].sVal << '\n';
+      RecBuffer tempBuffer(attrBlockNum);
+      HeadInfo tempHeader;
+      tempBuffer.getHeader(&tempHeader);
+      /* j = 0 to number of entries in the attribute catalog */
+      for (int j = 0; j < tempHeader.numEntries; ++j) {
 
-      /* attribute catalog entry corresponds to the current relation */
-      if (strcmp(attrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal, relCatRecord[RELCAT_REL_NAME_INDEX].sVal) == 0) {
-        const char *attrType = attrCatRecord[ATTRCAT_ATTR_TYPE_INDEX].nVal == NUMBER ? "NUM" : "STR";
-        printf("  %s: %s\n", /* get the attribute name */ attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, attrType);
+        // declare attrCatRecord and load the attribute catalog entry into it
+        Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
+        tempBuffer.getRecord(attrCatRecord, j);
+        
+        // std::cout << "Relation name from Attribute CAT:: " << attrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal << '\n';
+        // std::cout << "Relation name form Rel CAT:: " << relCatRecord[RELCAT_REL_NAME_INDEX].sVal << '\n';
+
+        /* attribute catalog entry corresponds to the current relation */
+        if (strcmp(attrCatRecord[ATTRCAT_REL_NAME_INDEX].sVal, relCatRecord[RELCAT_REL_NAME_INDEX].sVal) == 0) {
+          const char *attrType = attrCatRecord[ATTRCAT_ATTR_TYPE_INDEX].nVal == NUMBER ? "NUM" : "STR";
+          printf("  %s: %s\n", /* get the attribute name */ attrCatRecord[ATTRCAT_ATTR_NAME_INDEX].sVal, attrType);
+        }
       }
     }
     printf("\n");
@@ -70,9 +94,10 @@ int main(int argc, char *argv[]) {
   relCatBuffer.getHeader(&relCatHeader);
   attrCatBuffer.getHeader(&attrCatHeader);
 
-  std::cout << "Before Modification of students relation:: \n";
+  // std::cout << "Before Modification of students relation:: \n";
   readRelations(relCatBuffer, attrCatBuffer, relCatHeader, attrCatHeader);
   
+  return 0;
   // Iterate through the attributes of the students and change the type whereever wanted
   for (int i = 0; i < attrCatHeader.numEntries; ++i) {
     Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
